@@ -92,28 +92,16 @@ Panel {
   // Only opt in when its state file identifies this monitor; older setups
   // and the all-monitor view keep their existing global numbering.
   property var workspaceBlocks: ({})
-  readonly property int workspaceBlock: {
-    if (!cfg.perMonitor || !root.monitor) return -1
-    var block = workspaceBlocks[root.monitor.name]
-    return block === undefined ? -1 : block
-  }
+  readonly property int workspaceBlock: Model.monitorWorkspaceBlock(
+    root.workspaceBlocks, root.monitor ? root.monitor.name : "", cfg.perMonitor)
 
   FileView {
     path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitor-workspaces"
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoadFailed: root.workspaceBlocks = ({})
-    onLoaded: {
-      var blocks = {}
-      var lines = String(text() || "").split("\n")
-      for (var i = 0; i < lines.length; i++) {
-        var fields = lines[i].split("\t")
-        if (fields.length >= 3 && fields[1] && /^\d+$/.test(fields[0]))
-          blocks[fields[1]] = Number(fields[0])
-      }
-      root.workspaceBlocks = blocks
-    }
+    onLoadFailed: root.workspaceBlocks = Model.parseWorkspaceBlocks("")
+    onLoaded: root.workspaceBlocks = Model.parseWorkspaceBlocks(text())
   }
 
   // Workspace focused before the current one, for "click active = go back".
@@ -378,8 +366,9 @@ Panel {
   }
 
   function focusWorkspace(id) {
-    if (root.workspaceBlock >= 0 && Math.floor((id - 1) / 10) === root.workspaceBlock) {
-      run("hyprctl dispatch " + Util.shellQuote("o.workspaces.focus(" + ((id - 1) % 10 + 1) + ", " + JSON.stringify(root.monitor.name) + ")"))
+    if (root.workspaceBlock >= 0 && Model.workspaceBlockOf(id) === root.workspaceBlock) {
+      var expression = "o.workspaces.focus(" + Model.workspaceSlotOf(id) + ", " + JSON.stringify(root.monitor.name) + ")"
+      run("hyprctl dispatch " + Util.shellQuote(expression))
       return
     }
     run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
