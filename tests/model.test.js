@@ -388,4 +388,21 @@ test("window titles render as plain text", () => {
   for (const b of titled) assert.match(b, /textFormat:\s*Text\.PlainText/, b.split("\n").find((l) => /text:/.test(l)).trim())
 })
 
+test("monitor-local placeholders retain global IDs for actions", () => {
+  assert.deepStrictEqual(M.workspaceIds({11: 1, 13: 2}, [11], 5, false, 1), [11, 12, 13, 14, 15])
+  assert.deepStrictEqual(M.workspaceIds({11: 1, 13: 2}, [12], 5, true, 1), [11, 12, 13])
+  assert.deepStrictEqual(M.workspaceIds({6: 1}, [6], 5, false, 0), [1, 2, 3, 4, 5, 6])
+  assert.deepStrictEqual(M.workspaceIds({11: 1}, [11], 2, false), [1, 2, 11])
+})
+
+test("local labels preserve guest IDs and existing label styles", () => {
+  assert.strictEqual(M.workspaceLabel(11, false, "number", 1), "1")
+  assert.strictEqual(M.workspaceLabel(15, false, "number", 1), "5")
+  assert.strictEqual(M.workspaceLabel(20, false, "number", 1), "0")
+  assert.strictEqual(M.workspaceLabel(21, false, "number", 1), "21")
+  assert.strictEqual(M.workspaceLabel(11, false, "number", -1), "11")
+  assert.strictEqual(M.workspaceLabel(11, false, "none", 1), "")
+  assert.strictEqual(M.workspaceLabel(11, true, "glyph", 1), M.workspaceLabel(1, true, "glyph"))
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

@@ -88,6 +88,34 @@ Panel {
     return Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
   }
 
+  // Omarchy 4.5 assigns each monitor a block of ten global workspace IDs.
+  // Only opt in when its state file identifies this monitor; older setups
+  // and the all-monitor view keep their existing global numbering.
+  property var workspaceBlocks: ({})
+  readonly property int workspaceBlock: {
+    if (!cfg.perMonitor || !root.monitor) return -1
+    var block = workspaceBlocks[root.monitor.name]
+    return block === undefined ? -1 : block
+  }
+
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitor-workspaces"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoadFailed: root.workspaceBlocks = ({})
+    onLoaded: {
+      var blocks = {}
+      var lines = String(text() || "").split("\n")
+      for (var i = 0; i < lines.length; i++) {
+        var fields = lines[i].split("\t")
+        if (fields.length >= 3 && fields[1] && /^\d+$/.test(fields[0]))
+          blocks[fields[1]] = Number(fields[0])
+      }
+      root.workspaceBlocks = blocks
+    }
+  }
+
   // Workspace focused before the current one, for "click active = go back".
   property int previousWorkspaceId: -1
   property int lastWorkspaceId: -1
@@ -346,10 +374,14 @@ Panel {
     var occupied = ({})
     for (var id in workspaceMap) occupied[id] = workspaceMap[id].windows.length
     var active = root.currentWorkspaceId > 0 ? [root.currentWorkspaceId] : []
-    return Model.workspaceIds(occupied, active, cfg.persistentWorkspaces, cfg.hideEmpty)
+    return Model.workspaceIds(occupied, active, cfg.persistentWorkspaces, cfg.hideEmpty, root.workspaceBlock)
   }
 
   function focusWorkspace(id) {
+    if (root.workspaceBlock >= 0 && Math.floor((id - 1) / 10) === root.workspaceBlock) {
+      run("hyprctl dispatch " + Util.shellQuote("o.workspaces.focus(" + ((id - 1) % 10 + 1) + ", " + JSON.stringify(root.monitor.name) + ")"))
+      return
+    }
     run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
   }
 
@@ -805,7 +837,8 @@ Panel {
         readonly property string label: Model.workspaceLabel(
           workspaceId,
           active,
-          root.numbersVisible ? "number" : root.cfg.labelStyle
+          root.numbersVisible ? "number" : root.cfg.labelStyle,
+          root.workspaceBlock
         )
         readonly property real pad: Style.space(label === "" ? 3 : root.metrics.pad)
 
