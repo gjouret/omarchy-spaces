@@ -837,12 +837,18 @@ Panel {
         }
         readonly property var itemKeys: iconData.items.map(function(item) { return item.key })
         readonly property color textColor: active ? root.activeText() : root.fg
-        readonly property string label: Model.workspaceLabel(
-          workspaceId,
-          active,
-          root.numbersVisible ? "number" : root.cfg.labelStyle,
-          root.workspaceBlock
-        )
+        // Custom icon first; the pill keeps its number/glyph label when none
+        // is set. Held Super always shows plain numbers.
+        readonly property string label: {
+          var custom = Model.workspaceIcon(root.cfg, workspaceId, active)
+          if (custom !== "" && !root.numbersVisible) return custom
+          return Model.workspaceLabel(
+            workspaceId,
+            active,
+            root.numbersVisible ? "number" : root.cfg.labelStyle,
+            root.workspaceBlock
+          )
+        }
         readonly property real pad: Style.space(label === "" ? 3 : root.metrics.pad)
 
         // Appear animation lives on the delegate: positioner add transitions

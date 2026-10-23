@@ -436,4 +436,56 @@ test("workspace block and slot boundaries agree with Omarchy", () => {
   }
 })
 
+test("workspace icon settings default off and reject junk", () => {
+  const s = M.resolveSettings({})
+  assert.strictEqual(s.activeIcon, "")
+  for (let i = 1; i <= 10; i++) assert.strictEqual(s["wsIcon" + i], "")
+  const junk = M.resolveSettings({ activeIcon: 42, wsIcon3: null })
+  assert.strictEqual(junk.activeIcon, "")
+  assert.strictEqual(junk.wsIcon3, "")
+})
+
+test("workspace icon strings are capped at 32 graphemes", () => {
+  const s = M.resolveSettings({ wsIcon1: "a".repeat(40), wsIcon2: "\u{1F600}\u{1F600}" })
+  assert.strictEqual(s.wsIcon1, "a".repeat(32))
+  // Surrogate pairs stay whole; two emoji count as two graphemes.
+  assert.strictEqual(s.wsIcon2, "\u{1F600}\u{1F600}")
+  // A 40-emoji chain of ZWJ families clips to whole families, never half a
+  // sequence.
+  const family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67\u200D\uD83D\uDC66"
+  const long = M.resolveSettings({ wsIcon5: family.repeat(40) })
+  assert.strictEqual(long.wsIcon5.length % family.length, 0)
+  assert.ok(long.wsIcon5.length <= 32 * family.length)
+})
+
+test("workspaceIcon only applies to the custom label style", () => {
+  const fields = { wsIcon3: "\u2302", activeIcon: "\u2699" }
+  // Number, glyph and none keep their stock behaviour with fields present.
+  for (const style of ["number", "glyph", "none"]) {
+    const s = M.resolveSettings({ ...fields, labelStyle: style })
+    assert.strictEqual(M.workspaceIcon(s, 3, true), "", style)
+    assert.strictEqual(M.workspaceIcon(s, 7, true), "", style)
+  }
+  const custom = M.resolveSettings({ ...fields, labelStyle: "custom" })
+  assert.strictEqual(M.workspaceIcon(custom, 3, false), "\u2302")
+})
+
+test("workspaceIcon falls back to the label and honours precedence", () => {
+  const off = M.resolveSettings({ labelStyle: "custom" })
+  assert.strictEqual(M.workspaceIcon(off, 3, true), "")
+  assert.strictEqual(M.workspaceIcon(off, 10, false), "")
+
+  const named = M.resolveSettings({ wsIcon3: "\u2302", wsIcon10: "0\uFE0F\u20E3", activeIcon: "\u2699", labelStyle: "custom" })
+  assert.strictEqual(M.workspaceIcon(named, 3, false), "\u2302")
+  assert.strictEqual(M.workspaceIcon(named, 10, false), "0\uFE0F\u20E3")
+  // Unnamed workspaces fall back, and the focused one shows the override.
+  assert.strictEqual(M.workspaceIcon(named, 7, false), "")
+  assert.strictEqual(M.workspaceIcon(named, 7, true), "\u2699")
+  // A named workspace keeps its icon even while focused.
+  assert.strictEqual(M.workspaceIcon(named, 3, true), "\u2302")
+  // Workspace 11 has no per-workspace field, but the active override still
+  // applies to whatever is focused.
+  assert.strictEqual(M.workspaceIcon(named, 11, true), "\u2699")
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

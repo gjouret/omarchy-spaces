@@ -18,7 +18,7 @@ var DEFAULTS = {
   titleLength: 24,
   activeStyle: "subtle",      // "subtle" | "solid" | "accent"
   pillBackground: true,       // quiet fill behind occupied/hovered pills
-  labelStyle: "number",       // "number" | "glyph" | "none"
+  labelStyle: "number",       // "number" | "glyph" | "none" | "custom"
   holdSuperNumbers: false,    // show workspace numbers while Super is held (needs bindings)
   animations: true,
   animationSpeed: "normal",   // "slow" | "normal" | "fast"
@@ -33,7 +33,10 @@ var DEFAULTS = {
   previews: true,             // live preview of a workspace on hover
   previewSize: "medium",      // "small" | "medium" | "large"
   previewLive: true,          // keep previews streaming; false = one frame
-  agentStatus: true           // badges for coding agents running in terminals
+  agentStatus: true,          // badges for coding agents running in terminals
+  activeIcon: "",             // replaces the focused pill's label; empty = off
+  wsIcon1: "", wsIcon2: "", wsIcon3: "", wsIcon4: "", wsIcon5: "",
+  wsIcon6: "", wsIcon7: "", wsIcon8: "", wsIcon9: "", wsIcon10: ""  // per-workspace labels; empty = number
 }
 
 var SHOW_APPS = ["all", "active", "hover", "hoverOnly"]
@@ -43,7 +46,7 @@ var ACTIVE_CLICKS = ["none", "previous"]
 var SETTINGS_BUTTONS = ["hover", "always", "never"]
 var PREVIEW_SIZES = ["small", "medium", "large"]
 var ACTIVE_STYLES = ["subtle", "solid", "accent"]
-var LABEL_STYLES = ["number", "glyph", "none"]
+var LABEL_STYLES = ["number", "glyph", "none", "custom"]
 var SPEEDS = ["slow", "normal", "fast"]
 
 function clampInt(value, min, max, fallback) {
@@ -93,7 +96,18 @@ function resolveSettings(raw) {
     previews: bool(s.previews, d.previews),
     previewSize: oneOf(s.previewSize, PREVIEW_SIZES, d.previewSize),
     previewLive: bool(s.previewLive, d.previewLive),
-    agentStatus: bool(s.agentStatus, d.agentStatus)
+    agentStatus: bool(s.agentStatus, d.agentStatus),
+    activeIcon: clipIconString(s.activeIcon, d.activeIcon),
+    wsIcon1: clipIconString(s.wsIcon1, d.wsIcon1),
+    wsIcon2: clipIconString(s.wsIcon2, d.wsIcon2),
+    wsIcon3: clipIconString(s.wsIcon3, d.wsIcon3),
+    wsIcon4: clipIconString(s.wsIcon4, d.wsIcon4),
+    wsIcon5: clipIconString(s.wsIcon5, d.wsIcon5),
+    wsIcon6: clipIconString(s.wsIcon6, d.wsIcon6),
+    wsIcon7: clipIconString(s.wsIcon7, d.wsIcon7),
+    wsIcon8: clipIconString(s.wsIcon8, d.wsIcon8),
+    wsIcon9: clipIconString(s.wsIcon9, d.wsIcon9),
+    wsIcon10: clipIconString(s.wsIcon10, d.wsIcon10)
   }
 }
 
@@ -182,6 +196,28 @@ function workspaceLabel(id, focused, style, block) {
   var local = block >= 0 && workspaceBlockOf(id) === block
   var number = local ? workspaceSlotOf(id) : id
   return number === 10 ? "0" : String(number)
+}
+
+// Caps user-entered icon text at 32 graphemes, cutting without an ellipsis.
+// Non-string junk (numbers, null) falls back to the default, which keeps
+// malformed shell.json entries from leaking into labels.
+function clipIconString(value, fallback) {
+  if (typeof value !== "string") return fallback
+  var chars = graphemes(value)
+  return chars.length > 32 ? chars.slice(0, 32).join("") : chars.join("")
+}
+
+// Custom label for a workspace pill from the user's settings, or "" when none
+// applies (the pill then falls back to workspaceLabel). Only the "custom"
+// label style consults the icon fields; every other style keeps its stock
+// behaviour. A per-workspace icon is more specific than the active override,
+// so it wins even while focused.
+function workspaceIcon(settings, id, focused) {
+  if (settings.labelStyle !== "custom") return ""
+  var n = Number(id)
+  var icon = n >= 1 && n <= 10 ? settings["wsIcon" + n] : ""
+  if (icon) return clipIconString(icon, "")
+  return focused && settings.activeIcon ? clipIconString(settings.activeIcon, "") : ""
 }
 
 // Stable key identifying "the same app" across windows.
@@ -643,7 +679,7 @@ if (typeof module !== "undefined") {
     parsePids: parsePids, normalizeAgentState: normalizeAgentState,
     agentProcessIds: agentProcessIds, pruneDeadAgents: pruneDeadAgents,
     previewWidth: previewWidth, previewDimensions: previewDimensions, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,
-    workspaceIds: workspaceIds, workspaceLabel: workspaceLabel, appKey: appKey,
+    workspaceIds: workspaceIds, workspaceLabel: workspaceLabel, workspaceIcon: workspaceIcon, appKey: appKey,
     parseWorkspaceBlocks: parseWorkspaceBlocks, monitorWorkspaceBlock: monitorWorkspaceBlock,
     workspaceBlockOf: workspaceBlockOf, workspaceSlotOf: workspaceSlotOf,
     sortWindows: sortWindows, iconItems: iconItems, truncate: truncate,
