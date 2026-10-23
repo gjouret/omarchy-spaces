@@ -185,7 +185,10 @@ function workspaceIds(occupied, activeIds, persistent, hideEmpty, block) {
   }
   for (var a = 0; a < activeIds.length; a++) add(activeIds[a])
 
-  ids.sort(function(l, r) { return l - r })
+  // With a block, the monitor's own workspaces come first and visiting ones
+  // after them, as in Omarchy's bar, so a guest never sits among the slots.
+  function guest(id) { return block >= 0 && workspaceBlockOf(id) !== block ? 1 : 0 }
+  ids.sort(function(l, r) { return guest(l) - guest(r) || l - r })
   return ids
 }
 

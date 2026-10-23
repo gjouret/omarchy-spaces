@@ -395,6 +395,12 @@ test("monitor-local placeholders retain global IDs for actions", () => {
   assert.deepStrictEqual(M.workspaceIds({11: 1}, [11], 2, false), [1, 2, 11])
 })
 
+test("visiting workspaces follow the monitor's own", () => {
+  assert.deepStrictEqual(M.workspaceIds({3: 1, 12: 1, 26: 1}, [12], 5, false, 1), [11, 12, 13, 14, 15, 3, 26])
+  assert.deepStrictEqual(M.workspaceIds({3: 1, 12: 1}, [3], 5, true, 1), [12, 3])
+  assert.deepStrictEqual(M.workspaceIds({3: 1, 12: 1}, [3], 2, false), [1, 2, 3, 12])
+})
+
 test("local labels preserve guest IDs and existing label styles", () => {
   assert.strictEqual(M.workspaceLabel(11, false, "number", 1), "1")
   assert.strictEqual(M.workspaceLabel(15, false, "number", 1), "5")
