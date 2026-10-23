@@ -550,7 +550,18 @@ Panel {
     onExited: {
       root.iconIndex = root.pendingIconIndex
       root.invalidateIcons()
+      // Deferred so the process has fully stopped before it is started again.
+      if (root.iconRescanPending) Qt.callLater(root.rescanIcons)
     }
+  }
+
+  // A scan already running may have passed the directory a new icon landed
+  // in, so a request during one queues another for when it exits.
+  property bool iconRescanPending: false
+
+  function rescanIcons() {
+    root.iconRescanPending = iconScan.running
+    if (!iconScan.running) iconScan.running = true
   }
 
   Connections {
@@ -561,7 +572,10 @@ Panel {
   Timer {
     id: iconDebounce
     interval: 1500
-    onTriggered: root.invalidateIcons()
+    // New entries usually bring their icons, e.g. `omarchy webapp install`
+    // saves one under ~/.local/share/icons, a directory that may not have
+    // existed at startup. The scan invalidates the cache when it exits.
+    onTriggered: root.rescanIcons()
   }
 
   Component.onCompleted: {
