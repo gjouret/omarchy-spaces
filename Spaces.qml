@@ -931,6 +931,7 @@ Panel {
           Text {
             visible: pill.label !== ""
             text: pill.label
+            textFormat: Text.PlainText
             color: pill.textColor
             opacity: pill.occupied || pill.active ? 1 : 0.5
             font.family: root.fontFamily

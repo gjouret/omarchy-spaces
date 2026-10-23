@@ -369,7 +369,7 @@ test("parsePids drops junk and init", () => {
 
 // Apps and web pages set their own window titles. Qt guesses rich text by
 // default, so a title with markup could load remote images in the shell.
-test("window titles render as plain text", () => {
+test("window titles and workspace labels render as plain text", () => {
   const qml = fs.readFileSync(path.join(__dirname, "..", "Spaces.qml"), "utf8")
   const blocks = []
   const re = /^\s*Text\s*\{/gm
@@ -383,8 +383,8 @@ test("window titles render as plain text", () => {
     }
     blocks.push(qml.slice(start, i + 1))
   }
-  const titled = blocks.filter((b) => /^\s*text:.*title/im.test(b))
-  assert.ok(titled.length >= 2, "expected the focused title and the preview footer")
+  const titled = blocks.filter((b) => /^\s*text:.*(title|label)/im.test(b))
+  assert.ok(titled.length >= 3, "expected the workspace label, the focused title and the preview footer")
   for (const b of titled) assert.match(b, /textFormat:\s*Text\.PlainText/, b.split("\n").find((l) => /text:/.test(l)).trim())
 })
 
