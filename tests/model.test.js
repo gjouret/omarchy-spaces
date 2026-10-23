@@ -388,4 +388,52 @@ test("window titles render as plain text", () => {
   for (const b of titled) assert.match(b, /textFormat:\s*Text\.PlainText/, b.split("\n").find((l) => /text:/.test(l)).trim())
 })
 
+test("monitor-local placeholders retain global IDs for actions", () => {
+  assert.deepStrictEqual(M.workspaceIds({11: 1, 13: 2}, [11], 5, false, 1), [11, 12, 13, 14, 15])
+  assert.deepStrictEqual(M.workspaceIds({11: 1, 13: 2}, [12], 5, true, 1), [11, 12, 13])
+  assert.deepStrictEqual(M.workspaceIds({6: 1}, [6], 5, false, 0), [1, 2, 3, 4, 5, 6])
+  assert.deepStrictEqual(M.workspaceIds({11: 1}, [11], 2, false), [1, 2, 11])
+})
+
+test("local labels preserve guest IDs and existing label styles", () => {
+  assert.strictEqual(M.workspaceLabel(11, false, "number", 1), "1")
+  assert.strictEqual(M.workspaceLabel(15, false, "number", 1), "5")
+  assert.strictEqual(M.workspaceLabel(20, false, "number", 1), "0")
+  assert.strictEqual(M.workspaceLabel(21, false, "number", 1), "21")
+  assert.strictEqual(M.workspaceLabel(11, false, "number", -1), "11")
+  assert.strictEqual(M.workspaceLabel(11, false, "none", 1), "")
+  assert.strictEqual(M.workspaceLabel(11, true, "glyph", 1), M.workspaceLabel(1, true, "glyph"))
+})
+
+test("monitor block parser handles missing and malformed snapshots", () => {
+  for (const input of [undefined, "", "junk", "-1\tDP-1\tdisplay", "1.5\tDP-1\tdisplay",
+    "1\t\tdisplay", "99999999999999999999\tDP-1\tdisplay"]) {
+    assert.strictEqual(M.monitorWorkspaceBlock(M.parseWorkspaceBlocks(input), "DP-1", true), -1)
+  }
+  const blocks = M.parseWorkspaceBlocks("0\teDP-1\tLaptop\n1\tDP-1\tExternal\njunk\n")
+  assert.strictEqual(M.monitorWorkspaceBlock(blocks, "eDP-1", true), 0)
+  assert.strictEqual(M.monitorWorkspaceBlock(blocks, "DP-1", true), 1)
+  assert.strictEqual(M.monitorWorkspaceBlock(blocks, "DP-1", false), -1)
+  assert.strictEqual(M.monitorWorkspaceBlock(blocks, "constructor", true), -1)
+})
+
+test("new monitor snapshots replace assignments and remove stale monitors", () => {
+  let blocks = M.parseWorkspaceBlocks("0\teDP-1\tLaptop\n1\tDP-1\tExternal")
+  assert.strictEqual(M.monitorWorkspaceBlock(blocks, "DP-1", true), 1)
+  blocks = M.parseWorkspaceBlocks("0\tDP-1\tExternal")
+  const block = M.monitorWorkspaceBlock(blocks, "DP-1", true)
+  assert.strictEqual(block, 0)
+  assert.strictEqual(M.monitorWorkspaceBlock(blocks, "eDP-1", true), -1)
+  assert.deepStrictEqual(M.workspaceIds({}, [1], 5, false, block), [1, 2, 3, 4, 5])
+  blocks = M.parseWorkspaceBlocks("")
+  assert.strictEqual(M.monitorWorkspaceBlock(blocks, "DP-1", true), -1)
+})
+
+test("workspace block and slot boundaries agree with Omarchy", () => {
+  for (const [id, block, slot] of [[1, 0, 1], [10, 0, 10], [11, 1, 1], [20, 1, 10], [21, 2, 1]]) {
+    assert.strictEqual(M.workspaceBlockOf(id), block)
+    assert.strictEqual(M.workspaceSlotOf(id), slot)
+  }
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- With per-monitor filtering enabled on Omarchy 4.5, show local workspace
+  numbers and keep persistent empty slots in each monitor's own block.
+  Local slots use Omarchy's monitor-aware focus action; visiting workspaces
+  retain global labels. Older setups keep their existing numbering.
+
 ## 1.4.0
 
 - Show workspace numbers while holding Super: an opt-in setting under

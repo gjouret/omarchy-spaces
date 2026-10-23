@@ -126,16 +126,45 @@ function normalizeAddress(address) {
   return String(address || "").toLowerCase().replace(/^0x/, "")
 }
 
+// Omarchy's state file maps connector names to blocks of ten workspaces.
+// Parse each snapshot afresh so removed monitors do not leave stale entries.
+function parseWorkspaceBlocks(text) {
+  var blocks = Object.create(null)
+  var lines = String(text || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    var fields = lines[i].split("\t")
+    if (fields.length < 3 || !fields[1] || !/^\d+$/.test(fields[0])) continue
+    var block = Number(fields[0])
+    if (!Number.isSafeInteger(block) || !Number.isSafeInteger(block * 10 + 10)) continue
+    blocks[fields[1]] = block
+  }
+  return blocks
+}
+
+function monitorWorkspaceBlock(blocks, monitorName, perMonitor) {
+  if (!perMonitor || !blocks || !Object.prototype.hasOwnProperty.call(blocks, monitorName)) return -1
+  return blocks[monitorName]
+}
+
+function workspaceBlockOf(id) {
+  return Math.floor((id - 1) / 10)
+}
+
+function workspaceSlotOf(id) {
+  return (id - 1) % 10 + 1
+}
+
 // Workspace ids to render. `occupied` maps id -> window count for every
 // normal (positive id) workspace Hyprland knows about. `activeIds` are
 // workspaces that must stay visible even when empty (focused / on-screen).
-function workspaceIds(occupied, activeIds, persistent, hideEmpty) {
+function workspaceIds(occupied, activeIds, persistent, hideEmpty, block) {
   var ids = []
   function add(id) {
     if (id > 0 && ids.indexOf(id) === -1) ids.push(id)
   }
 
-  if (!hideEmpty) for (var p = 1; p <= persistent; p++) add(p)
+  var base = block >= 0 ? block * 10 : 0
+  if (!hideEmpty) for (var p = 1; p <= persistent; p++) add(base + p)
   for (var key in occupied) {
     var id = Number(key)
     if (occupied[key] > 0 || !hideEmpty) add(id)
@@ -147,10 +176,12 @@ function workspaceIds(occupied, activeIds, persistent, hideEmpty) {
 }
 
 // Label text for a workspace pill.
-function workspaceLabel(id, focused, style) {
+function workspaceLabel(id, focused, style, block) {
   if (style === "none") return ""
   if (style === "glyph" && focused) return "󱓻"
-  return id === 10 ? "0" : String(id)
+  var local = block >= 0 && workspaceBlockOf(id) === block
+  var number = local ? workspaceSlotOf(id) : id
+  return number === 10 ? "0" : String(number)
 }
 
 // Stable key identifying "the same app" across windows.
@@ -613,6 +644,8 @@ if (typeof module !== "undefined") {
     agentProcessIds: agentProcessIds, pruneDeadAgents: pruneDeadAgents,
     previewWidth: previewWidth, previewDimensions: previewDimensions, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,
     workspaceIds: workspaceIds, workspaceLabel: workspaceLabel, appKey: appKey,
+    parseWorkspaceBlocks: parseWorkspaceBlocks, monitorWorkspaceBlock: monitorWorkspaceBlock,
+    workspaceBlockOf: workspaceBlockOf, workspaceSlotOf: workspaceSlotOf,
     sortWindows: sortWindows, iconItems: iconItems, truncate: truncate,
     focusedLabel: focusedLabel, webAppHost: webAppHost, appIdCandidates: appIdCandidates, iconPathScore: iconPathScore,
     iconNameFromPath: iconNameFromPath, stepWorkspace: stepWorkspace, mergedEntry: mergedEntry,

@@ -88,6 +88,22 @@ Panel {
     return Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
   }
 
+  // Omarchy 4.5 assigns each monitor a block of ten global workspace IDs.
+  // Only opt in when its state file identifies this monitor; older setups
+  // and the all-monitor view keep their existing global numbering.
+  property var workspaceBlocks: ({})
+  readonly property int workspaceBlock: Model.monitorWorkspaceBlock(
+    root.workspaceBlocks, root.monitor ? root.monitor.name : "", cfg.perMonitor)
+
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitor-workspaces"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoadFailed: root.workspaceBlocks = Model.parseWorkspaceBlocks("")
+    onLoaded: root.workspaceBlocks = Model.parseWorkspaceBlocks(text())
+  }
+
   // Workspace focused before the current one, for "click active = go back".
   property int previousWorkspaceId: -1
   property int lastWorkspaceId: -1
@@ -346,10 +362,15 @@ Panel {
     var occupied = ({})
     for (var id in workspaceMap) occupied[id] = workspaceMap[id].windows.length
     var active = root.currentWorkspaceId > 0 ? [root.currentWorkspaceId] : []
-    return Model.workspaceIds(occupied, active, cfg.persistentWorkspaces, cfg.hideEmpty)
+    return Model.workspaceIds(occupied, active, cfg.persistentWorkspaces, cfg.hideEmpty, root.workspaceBlock)
   }
 
   function focusWorkspace(id) {
+    if (root.workspaceBlock >= 0 && Model.workspaceBlockOf(id) === root.workspaceBlock) {
+      var expression = "o.workspaces.focus(" + Model.workspaceSlotOf(id) + ", " + JSON.stringify(root.monitor.name) + ")"
+      run("hyprctl dispatch " + Util.shellQuote(expression))
+      return
+    }
     run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
   }
 
@@ -819,7 +840,8 @@ Panel {
         readonly property string label: Model.workspaceLabel(
           workspaceId,
           active,
-          root.numbersVisible ? "number" : root.cfg.labelStyle
+          root.numbersVisible ? "number" : root.cfg.labelStyle,
+          root.workspaceBlock
         )
         readonly property real pad: Style.space(label === "" ? 3 : root.metrics.pad)
 
